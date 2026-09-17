@@ -1,0 +1,33 @@
+name: Hermes Agent Init
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_id:
+        description: "Session ID for log tracking"
+        required: true
+
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Send Progress Log
+        run: |
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Initializing Hermes workspace and loading Atria endpoint...", "type": "step"}'
+
+      - name: Install Hermes Agent
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+
+      - name: Send Finalizing Log
+        run: |
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Agent successfully initialized and ready!", "type": "complete"}'
+            

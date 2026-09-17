@@ -1,0 +1,63 @@
+name: Hermes Agent Ask Task
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Task prompt for Hermes"
+        required: true
+      session_id:
+        description: "Session ID for real-time tracking"
+        required: true
+
+jobs:
+  execute-agent-task:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Hermes
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+
+      - name: Log Task Start
+        run: |
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Analyzing request and selecting tools...", "type": "step"}'
+
+      - name: Execute Hermes Task with Atria-Dawn-Preview
+        env:
+          ATRIA_API_KEY: ${{ secrets.ATRIA_API_KEY }}
+          OPENAI_BASE_URL: "https://api.atria-asi.ai/v1"
+          OPENAI_API_KEY: ${{ secrets.ATRIA_API_KEY }}
+        run: |
+          # Send progress updates during tool usage
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}'
+
+          # Run task and redirect output to a file
+          hermes chat \
+            --model "Atria-Dawn-Preview" \
+            --custom-endpoint "https://api.atria-asi.ai/v1" \
+            -q "${{ github.event.inputs.prompt }}" > output.txt
+
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Attaching output file to chat stream...", "type": "step"}'
+
+      - name: Send Output Back to Web UI
+        run: |
+          OUTPUT_CONTENT=$(cat output.txt | jq -sR .)
+          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"session_id\": \"${{ github.event.inputs.session_id }}\", \"output\": $OUTPUT_CONTENT, \"type\": \"finish\"}"
+            

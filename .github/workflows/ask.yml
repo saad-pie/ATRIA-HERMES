@@ -23,14 +23,21 @@ jobs:
           python-version: "3.11"
 
       - name: Restore Hermes Cache
+        id: cache-hermes
         uses: actions/cache@v4
         with:
           path: |
             ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-v1-${{ github.sha }}
+          key: ${{ runner.os }}-hermes-shared-v1
           restore-keys: |
-            ${{ runner.os }}-hermes-v1-
+            ${{ runner.os }}-hermes-shared-v1
+
+      # Emergency fallback: if cache is empty for any reason, install instantly
+      - name: Install Hermes Agent (Fallback if Cache Missing)
+        if: steps.cache-hermes.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
 
       - name: Ensure Bin in Path
         run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH

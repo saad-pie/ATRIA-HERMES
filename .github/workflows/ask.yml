@@ -56,6 +56,8 @@ jobs:
           ATRIA_API_KEY: ${{ secrets.ATRIA_API_KEY }}
           OPENAI_BASE_URL: "https://api.atria-asi.ai/v1"
           OPENAI_API_KEY: ${{ secrets.ATRIA_API_KEY }}
+          HERMES_PROVIDER: "openai"
+          HERMES_MODEL: "Atria-Dawn-Preview"
         run: |
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
@@ -63,15 +65,21 @@ jobs:
 
           export PATH="$HOME/.local/bin:$HOME/.hermes/bin:$PATH"
 
-          # Run task and redirect output to a file
-          hermes chat \
-            --model "Atria-Dawn-Preview" \
-            --custom-endpoint "https://api.atria-asi.ai/v1" \
-            -q "${{ github.event.inputs.prompt }}" > output.txt || \
-          python3 -m hermes_agent chat \
-            --model "Atria-Dawn-Preview" \
-            --custom-endpoint "https://api.atria-asi.ai/v1" \
-            -q "${{ github.event.inputs.prompt }}" > output.txt
+          # Write out provider configuration file for Atria endpoint mapping
+          mkdir -p $HOME/.hermes
+          cat << CONFIG > $HOME/.hermes/config.yaml
+          provider: openai
+          model: Atria-Dawn-Preview
+          stream: true
+          providers:
+            openai:
+              base_url: https://api.atria-asi.ai/v1
+              api_key: ${{ secrets.ATRIA_API_KEY }}
+          CONFIG
+
+          # Run task and redirect output to a file (using standard env variables for endpoints)
+          hermes chat -q "${{ github.event.inputs.prompt }}" > output.txt || \
+          hermes run --prompt "${{ github.event.inputs.prompt }}" --yolo > output.txt
 
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \

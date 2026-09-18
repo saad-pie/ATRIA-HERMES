@@ -11,7 +11,7 @@ on:
         default: "system_init"
 
 jobs:
-z  initialize:
+  initialize:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -29,7 +29,6 @@ z  initialize:
         with:
           python-version: "3.11"
 
-      # Use a shared static key so it persists across different workflow runs
       - name: Cache Hermes Installation
         id: cache-hermes
         uses: actions/cache@v4

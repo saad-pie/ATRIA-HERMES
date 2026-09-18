@@ -17,30 +17,33 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python Runtime
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Restore Hermes Cache
-        id: cache-hermes
-        uses: actions/cache@v4
+      - name: Restore Master Environment Cache
+        uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-shared-v1
+            ~/.local/bin
+            ~/.hermes
+          key: hermes-shared-environment-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-hermes-shared-v1
+            hermes-shared-environment-cache-${{ runner.os }}-
 
-      # Emergency fallback: if cache is empty for any reason, install instantly
-      - name: Install Hermes Agent (Fallback if Cache Missing)
-        if: steps.cache-hermes.outputs.cache-hit != 'true'
+      - name: Ensure Bin Paths & Smart Fallback
         run: |
-          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-
-      - name: Ensure Bin in Path
-        run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+          
+          # Consistency check: If cache missed or binary is missing, install inline safely
+          if ! command -v hermes &> /dev/null && [ ! -f "$HOME/.hermes/bin/hermes" ]; then
+            echo "Cache miss detected. Installing Hermes CLI fallback..."
+            pip install hermes-agent || true
+            curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash || true
+          fi
 
       - name: Log Task Start
         run: |
@@ -58,10 +61,14 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}'
 
-          export PATH="$HOME/.hermes/bin:$PATH"
+          export PATH="$HOME/.local/bin:$HOME/.hermes/bin:$PATH"
 
           # Run task and redirect output to a file
           hermes chat \
+            --model "Atria-Dawn-Preview" \
+            --custom-endpoint "https://api.atria-asi.ai/v1" \
+            -q "${{ github.event.inputs.prompt }}" > output.txt || \
+          python3 -m hermes_agent chat \
             --model "Atria-Dawn-Preview" \
             --custom-endpoint "https://api.atria-asi.ai/v1" \
             -q "${{ github.event.inputs.prompt }}" > output.txt

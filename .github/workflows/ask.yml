@@ -22,10 +22,18 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Hermes
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+      - name: Restore Hermes Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hermes
+            ~/.cache/pip
+          key: ${{ runner.os }}-hermes-${{ hashFiles('**/install.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-hermes-
+
+      - name: Ensure Bin in Path
+        run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH
 
       - name: Log Task Start
         run: |
@@ -39,7 +47,6 @@ jobs:
           OPENAI_BASE_URL: "https://api.atria-asi.ai/v1"
           OPENAI_API_KEY: ${{ secrets.ATRIA_API_KEY }}
         run: |
-          # Send progress updates during tool usage
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}'

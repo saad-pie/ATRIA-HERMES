@@ -28,9 +28,9 @@ jobs:
           path: |
             ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-${{ hashFiles('**/install.sh') }}
+          key: ${{ runner.os }}-hermes-v1-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-hermes-
+            ${{ runner.os }}-hermes-v1-
 
       - name: Ensure Bin in Path
         run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH
@@ -50,6 +50,8 @@ jobs:
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
             -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}'
+
+          export PATH="$HOME/.hermes/bin:$PATH"
 
           # Run task and redirect output to a file
           hermes chat \

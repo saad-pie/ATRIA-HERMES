@@ -22,27 +22,33 @@ jobs:
         run: |
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Initializing Hermes workspace and caching dependencies...", "type": "step"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Initializing Hermes workspace and caching toolchain...", "type": "step"}'
 
-      - name: Set up Python
+      - name: Set up Python Runtime
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Cache Hermes Installation
-        id: cache-hermes
-        uses: actions/cache@v4
+      - name: Install Hermes CLI & Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install hermes-agent browser-use playwright
+          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash || true
+          
+      - name: Export & Setup Paths
+        run: |
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+          mkdir -p $HOME/.hermes
+
+      - name: Save Master Environment Cache
+        uses: actions/cache/save@v4
         with:
           path: |
-            ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-shared-v1
-          restore-keys: |
-            ${{ runner.os }}-hermes-shared-v1
-
-      - name: Install Hermes Agent
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
+            ~/.local/bin
+            ~/.hermes
+          key: hermes-shared-environment-cache-${{ runner.os }}-${{ github.sha }}
 
       - name: Send Finalizing Log
         if: github.event_name == 'workflow_dispatch'

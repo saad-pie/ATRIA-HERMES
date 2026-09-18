@@ -11,7 +11,7 @@ on:
         default: "system_init"
 
 jobs:
-  initialize:
+z  initialize:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Use a stable cache key since the install script is fetched remotely
+      # Use a shared static key so it persists across different workflow runs
       - name: Cache Hermes Installation
         id: cache-hermes
         uses: actions/cache@v4
@@ -37,9 +37,9 @@ jobs:
           path: |
             ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-v1-${{ github.sha }}
+          key: ${{ runner.os }}-hermes-shared-v1
           restore-keys: |
-            ${{ runner.os }}-hermes-v1-
+            ${{ runner.os }}-hermes-shared-v1
 
       - name: Install Hermes Agent
         run: |

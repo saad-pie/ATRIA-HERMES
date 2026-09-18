@@ -29,6 +29,7 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Use a stable cache key since the install script is fetched remotely
       - name: Cache Hermes Installation
         id: cache-hermes
         uses: actions/cache@v4
@@ -36,17 +37,13 @@ jobs:
           path: |
             ~/.hermes
             ~/.cache/pip
-          key: ${{ runner.os }}-hermes-${{ hashFiles('**/install.sh') }}
+          key: ${{ runner.os }}-hermes-v1-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-hermes-
+            ${{ runner.os }}-hermes-v1-
 
-      - name: Install Hermes Agent (if not cached)
-        if: steps.cache-hermes.outputs.cache-hit != 'true'
+      - name: Install Hermes Agent
         run: |
           curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-
-      - name: Ensure Bin in Path
-        run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH
 
       - name: Send Finalizing Log
         if: github.event_name == 'workflow_dispatch'

@@ -1,11 +1,14 @@
-name: Hermes Agent Init
+name: Hermes Agent Init & Cache Setup
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
       session_id:
         description: "Session ID for log tracking"
-        required: true
+        required: false
+        default: "system_init"
 
 jobs:
   initialize:
@@ -15,19 +18,40 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Send Progress Log
+        if: github.event_name == 'workflow_dispatch'
         run: |
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Initializing Hermes workspace and loading Atria endpoint...", "type": "step"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Initializing Hermes workspace and caching dependencies...", "type": "step"}'
 
-      - name: Install Hermes Agent
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache Hermes Installation
+        id: cache-hermes
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.hermes
+            ~/.cache/pip
+          key: ${{ runner.os }}-hermes-${{ hashFiles('**/install.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-hermes-
+
+      - name: Install Hermes Agent (if not cached)
+        if: steps.cache-hermes.outputs.cache-hit != 'true'
         run: |
           curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash
-          echo "$HOME/.hermes/bin" >> $GITHUB_PATH
+
+      - name: Ensure Bin in Path
+        run: echo "$HOME/.hermes/bin" >> $GITHUB_PATH
 
       - name: Send Finalizing Log
+        if: github.event_name == 'workflow_dispatch'
         run: |
           curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Agent successfully initialized and ready!", "type": "complete"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Agent successfully initialized, cached, and ready!", "type": "complete"}'
             

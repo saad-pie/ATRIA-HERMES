@@ -47,9 +47,9 @@ jobs:
 
       - name: Log Task Start
         run: |
-          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Analyzing request and selecting tools...", "type": "step"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Analyzing request and selecting tools...", "type": "step"}' || true
 
       - name: Execute Hermes Task with Atria-Dawn-Preview
         env:
@@ -59,9 +59,9 @@ jobs:
           HERMES_PROVIDER: "openai"
           HERMES_MODEL: "Atria-Dawn-Preview"
         run: |
-          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Generating output file with Atria-Dawn-Preview...", "type": "step"}' || true
 
           export PATH="$HOME/.local/bin:$HOME/.hermes/bin:$PATH"
 
@@ -70,25 +70,28 @@ jobs:
           cat << CONFIG > $HOME/.hermes/config.yaml
           provider: openai
           model: Atria-Dawn-Preview
-          stream: true
+          stream: false
           providers:
             openai:
               base_url: https://api.atria-asi.ai/v1
               api_key: ${{ secrets.ATRIA_API_KEY }}
           CONFIG
 
-          # Run task and redirect output to a file (using standard env variables for endpoints)
-          hermes chat -q "${{ github.event.inputs.prompt }}" > output.txt || \
-          hermes run --prompt "${{ github.event.inputs.prompt }}" --yolo > output.txt
+          # Run task and explicitly capture stdout/stderr to output.txt so it's never empty
+          echo "=== HERMES EXECUTION LOG ===" > output.txt
+          hermes chat -q "${{ github.event.inputs.prompt }}" >> output.txt 2>&1 || \
+          hermes run --prompt "${{ github.event.inputs.prompt }}" --yolo >> output.txt 2>&1 || \
+          python3 -m hermes chat -q "${{ github.event.inputs.prompt }}" >> output.txt 2>&1 || \
+          echo "Error: Hermes execution commands failed to generate output." >> output.txt
 
-          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Attaching output file to chat stream...", "type": "step"}'
+            -d '{"session_id": "${{ github.event.inputs.session_id }}", "status": "Attaching output file to chat stream...", "type": "step"}' || true
 
       - name: Send Output Back to Web UI
         run: |
           OUTPUT_CONTENT=$(cat output.txt | jq -sR .)
-          curl -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
+          curl -s -X POST "${{ secrets.VERCEL_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{\"session_id\": \"${{ github.event.inputs.session_id }}\", \"output\": $OUTPUT_CONTENT, \"type\": \"finish\"}"
+            -d "{\"session_id\": \"${{ github.event.inputs.session_id }}\", \"output\": $OUTPUT_CONTENT, \"type\": \"finish\"}" || true
             

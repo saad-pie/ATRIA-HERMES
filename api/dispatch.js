@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.GITHUB_PAT}`, // Personal Access Token
+        Authorization: `Bearer ${process.env.GIT_PAT}`, // Personal Access Token
         Accept: 'application/vnd.github.v3+json',
       },
       body: JSON.stringify({
